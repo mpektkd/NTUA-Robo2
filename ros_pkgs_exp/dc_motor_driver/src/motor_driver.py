@@ -37,7 +37,6 @@ class MotorDriver:
         self._mh.getMotor(self._motor_left_num).run(Adafruit_MotorHAT.RELEASE)
         self._mh.getMotor(self._motor_right_num).run(Adafruit_MotorHAT.RELEASE)
         self.motors_on = False
-        print('imehere')
         
     def drive(self,twist):
         x = twist.linear.x
@@ -93,11 +92,7 @@ if __name__ == '__main__':
 
     driver = MotorDriver(motor_gain, wheel_sep, wheel_radius)
     
-    #rospy.Subscriber('cmd_vel', Twist, driver.drive)
-    twist = Twist()
-    twist.linear.x = 10
-    twist.angular.z = 2
-
+    rospy.Subscriber('cmd_vel', Twist, driver.drive)
     
     rate = rospy.Rate(10)
     
@@ -106,12 +101,13 @@ if __name__ == '__main__':
         rospy.loginfo("[motor_driver]: Test mode on")
     else:
         timeout = 0.1
-
-    print("I'm here")
-    driver.drive(twist)
+    
     while not rospy.is_shutdown():
-        if driver.last_msg_time is not None and (((rospy.get_rostime() - driver.last_msg_time).to_sec()) > timeout) and driver.motors_on:
-            # driver.turnOffMotors()
-            driver.drive(twist)
-        print("I'm here2")
+        # if driver.last_msg_time is None or (((rospy.get_rostime() - driver.last_msg_time).to_sec()) <= timeout) or not driver.motors_on:
+        #     driver.turnOffMotors()
         rate.sleep()
+
+    # while not rospy.is_shutdown():
+    #     if driver.last_msg_time is not None and (((rospy.get_rostime() - driver.last_msg_time).to_sec()) > timeout) and driver.motors_on:
+    #         driver.turnOffMotors()
+    #     rate.sleep()

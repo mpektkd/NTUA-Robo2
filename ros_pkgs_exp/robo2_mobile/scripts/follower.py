@@ -128,15 +128,15 @@ class mymobibot_follower():
         # ROS SETUP
         # initialize subscribers for reading encoders and publishers for performing position control in the joint-space
         # Robot
-        self.velocity_pub = rospy.Publisher('/mymobibot/cmd_vel', Twist, queue_size=1)
+        self.velocity_pub = rospy.Publisher('cmd_vel', Twist, queue_size=1)
         self.joint_states_sub = rospy.Subscriber('/mymobibot/joint_states', JointState, self.joint_states_callback, queue_size=1)
         # Sensors
         self.imu_sub = rospy.Subscriber('/imu', Imu, self.imu_callback, queue_size=1)
-        self.sonar_front_sub = rospy.Subscriber('/sensor/sonar_F', Range, self.sonar_front_callback, queue_size=1)
-        self.sonar_frontleft_sub = rospy.Subscriber('/sensor/sonar_FL', Range, self.sonar_frontleft_callback, queue_size=1)
-        self.sonar_frontright_sub = rospy.Subscriber('/sensor/sonar_FR', Range, self.sonar_frontright_callback, queue_size=1)
-        self.sonar_left_sub = rospy.Subscriber('/sensor/sonar_L', Range, self.sonar_left_callback, queue_size=1)
-        self.sonar_right_sub = rospy.Subscriber('/sensor/sonar_R', Range, self.sonar_right_callback, queue_size=1)
+        self.sonar_front_sub = rospy.Subscriber('sonar_front', Range, self.sonar_front_callback, queue_size=1)
+        self.sonar_frontleft_sub = rospy.Subscriber('sonar_front_left', Range, self.sonar_frontleft_callback, queue_size=1)
+        self.sonar_frontright_sub = rospy.Subscriber('sonar_front_right', Range, self.sonar_frontright_callback, queue_size=1)
+        self.sonar_left_sub = rospy.Subscriber('sonar_left', Range, self.sonar_left_callback, queue_size=1)
+        self.sonar_right_sub = rospy.Subscriber('sonar_right', Range, self.sonar_right_callback, queue_size=1)
 
         #Publishing rate
         self.period = 1.0 / rate
