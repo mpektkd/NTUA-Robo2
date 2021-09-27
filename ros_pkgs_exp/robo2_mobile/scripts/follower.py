@@ -79,6 +79,30 @@ class Logger:
         for (name,value) in tbp:
             self.pubs[name].publish(value)
 
+
+class Smoother:
+    def __init__(self, order):
+        self.pos = 0
+        self.order = order
+        self.values = [0] * order
+
+    def __call__(self, input):
+        self.values[self.pos % self.order] = input
+        self.pos += 1
+        return np.mean(self.values)
+
+class MinFilter:
+    def __init__(self, order):
+        self.pos = 0
+        self.order = order
+        self.values = [0] * order
+
+    def __call__(self, input):
+        self.values[self.pos % self.order] = input
+        self.pos += 1
+        return np.min(self.values)
+
+
 class mymobibot_follower():
     """Class to compute and publish joints positions"""
     def __init__(self,rate):
@@ -104,9 +128,9 @@ class mymobibot_follower():
 
         #PIDs
 
-        self.linear_control = PID(1, 0 , 2)
-        self.turn_control = PID(3, 0,8)
-        self.angular_control = PID(20, 0, 8)
+        self.linear_control = PID(3, 0.01 , 6)
+        self.turn_control = PID(3, 0,4)
+        self.angular_control = PID(10, 0.02, 8)
         self.turnback_control = PID(3, 0, 20)
 
         #Setpoints
@@ -121,10 +145,10 @@ class mymobibot_follower():
         # self.break_distance = 1
         # self.theta_desired = np.pi/2
         # self.parking_distance = 1.65
-        self.wall_min_dist_find = 0.4
-        self.wall_min = 0.4
+        self.wall_min_dist_find = 0.2
+        self.wall_min = 0.2
         self.find_wall_error_thres = 0.1
-        self.turn_distance_thres = 0.6
+        self.turn_distance_thres = 0.4
         self.adjust_thres = 0
         self.linear_err_thres = 0.1#0
         self.correction = 1.5
@@ -132,9 +156,10 @@ class mymobibot_follower():
         self.break_distance = 1
         self.theta_desired = np.pi/2
         self.parking_distance = 1.65
+        self.err_smoother = Smoother(5)
 
         #Offsets
-        self.linear_velocity_offset = 0.1
+        self.linear_velocity_offset = 0.05
         # self.linear_velocity_offset = 0.01
 
         
@@ -223,12 +248,12 @@ class mymobibot_follower():
 
         if error < self.adjust_thres:
             self.prev_state = 1
-            # if corners == 8:
-            #     self.state = 3
-            #     print("Adjusted, moving on to State 3")
-            # else:
-            #     self.state = 2
-            #     print("Adjusted, moving on to State 2")
+            if corners == 4:
+                self.state = 3
+                print("Adjusted, moving on to State 3")
+            else:
+                self.state = 2
+                print("Adjusted, moving on to State 2")
             self.state = 2
             print("Adjusted, moving on to State 2")
 
@@ -237,6 +262,7 @@ class mymobibot_follower():
         linear_error = self.wall_min - self.sonar_F.range
         d, theta = calc_distance_orientation(self.sonar_R.range, self.sonar_FR.range)
         angular_error = theta - (self.correction * (d-self.wall_min))
+        angular_error = self.err_smoother(angular_error)
 
         self.velocity.linear.x = - self.linear_control(linear_error, time) + self.linear_velocity_offset
         self.velocity.angular.z = self.angular_control(angular_error, time)
