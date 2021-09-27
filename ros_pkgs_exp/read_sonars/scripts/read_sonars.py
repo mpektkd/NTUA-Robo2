@@ -90,7 +90,6 @@ def publish_sonar():
     rospy.init_node('sonar_publisher', anonymous=True)
     sonar_topic = rospy.get_param('~sonar_topic')
     pub = rospy.Publisher(sonar_topic, Range, queue_size=1)
-
     #initialize sonars
     define_sonars()
     init_sonars()

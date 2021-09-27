@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
 """
 Start ROS node to publish linear and angular velocities to mymobibot in order to perform wall following.
@@ -110,12 +110,24 @@ class mymobibot_follower():
         self.turnback_control = PID(3, 0, 20)
 
         #Setpoints
-        self.wall_min_dist_find = 0.3
+        # self.wall_min_dist_find = 0.3
+        # self.wall_min = 0.4
+        # self.find_wall_error_thres = 0.1
+        # self.turn_distance_thres = 1.4
+        # self.adjust_thres = 0.3
+        # self.linear_err_thres = 0.5
+        # self.correction = 2
+        # self.turn_back_correction = 0.5
+        # self.break_distance = 1
+        # self.theta_desired = np.pi/2
+        # self.parking_distance = 1.65
+        self.wall_min_dist_find = 0.4
         self.wall_min = 0.4
         self.find_wall_error_thres = 0.1
-        self.turn_distance_thres = 1.4
-        self.adjust_thres = 0.3
-        self.correction = 2
+        self.turn_distance_thres = 0.6
+        self.adjust_thres = 0
+        self.linear_err_thres = 0.1#0
+        self.correction = 1.5
         self.turn_back_correction = 0.5
         self.break_distance = 1
         self.theta_desired = np.pi/2
@@ -123,6 +135,7 @@ class mymobibot_follower():
 
         #Offsets
         self.linear_velocity_offset = 0.1
+        # self.linear_velocity_offset = 0.01
 
         
         # ROS SETUP
@@ -210,16 +223,19 @@ class mymobibot_follower():
 
         if error < self.adjust_thres:
             self.prev_state = 1
-            if corners == 8:
-                self.state = 3
-                print("Adjusted, moving on to State 3")
-            else:
-                self.state = 2
-                print("Adjusted, moving on to State 2")
+            # if corners == 8:
+            #     self.state = 3
+            #     print("Adjusted, moving on to State 3")
+            # else:
+            #     self.state = 2
+            #     print("Adjusted, moving on to State 2")
+            self.state = 2
+            print("Adjusted, moving on to State 2")
+
 
     def wall_follow(self,time):
         linear_error = self.wall_min - self.sonar_F.range
-        d, theta = calc_distance_orientation(self.sonar_L.range, self.sonar_FL.range)
+        d, theta = calc_distance_orientation(self.sonar_R.range, self.sonar_FR.range)
         angular_error = theta - (self.correction * (d-self.wall_min))
 
         self.velocity.linear.x = - self.linear_control(linear_error, time) + self.linear_velocity_offset
@@ -227,7 +243,8 @@ class mymobibot_follower():
 
         L.publish([('log_err_ang', angular_error), ('log_error', d - self.wall_min), ('log_theta', theta), ('log_mu', d), ('log_state2_time', time)])
 
-        if linear_error > - 0.5:
+        if linear_error > self.linear_err_thres:
+        
             # Update states for countering corners #
             self.prev_state = 2
             self.state = 1
