@@ -91,16 +91,20 @@ class Smoother:
         self.pos += 1
         return np.mean(self.values)
 
-class MinFilter:
-    def __init__(self, order):
-        self.pos = 0
-        self.order = order
-        self.values = [0] * order
+class Filter:
+    def __init__(self, prev=0.8, cur=0.2):
+        self.prev = prev
+        self.cur = cur
+        self.prev_x =  dict(
+            front = None,
+            front_right = None,
+            right = None,
+        )
 
-    def __call__(self, input):
-        self.values[self.pos % self.order] = input
-        self.pos += 1
-        return np.min(self.values)
+    def __call__(self, cur_x, key):
+        self.prev_x[key] = self.prev*self.prev_x[key] + self.cur*cur_x if self.prev_x[key] else cur_x
+        print(self.prev_x)
+        return self.prev_x[key]
 
 
 class mymobibot_follower():
@@ -127,10 +131,11 @@ class mymobibot_follower():
         self.sonar_R = Range()
 
         #PIDs
-
-        self.linear_control = PID(3, 0.01 , 6)
-        self.turn_control = PID(3, 0,4)
-        self.angular_control = PID(10, 0.02, 8)
+        fo = 1e-4
+        self.linear_control = PID(42, 0, 0.125/fo)
+        self.wall_linear_control = PID(10, 0, 0)
+        self.turn_control = PID(20, 0, 0)
+        self.angular_control = PID(10, 0, 0)
         self.turnback_control = PID(3, 0, 20)
 
         #Setpoints
@@ -145,21 +150,21 @@ class mymobibot_follower():
         # self.break_distance = 1
         # self.theta_desired = np.pi/2
         # self.parking_distance = 1.65
-        self.wall_min_dist_find = 0.2
-        self.wall_min = 0.2
+        self.wall_min_dist_find = 0.3
+        self.wall_min = 0.3
         self.find_wall_error_thres = 0.1
-        self.turn_distance_thres = 0.4
-        self.adjust_thres = 0
+        self.turn_distance_thres = 0.6
+        self.adjust_thres = 0.1
         self.linear_err_thres = 0.1#0
-        self.correction = 1.5
+        self.correction = 0.5
         self.turn_back_correction = 0.5
         self.break_distance = 1
         self.theta_desired = np.pi/2
         self.parking_distance = 1.65
-        self.err_smoother = Smoother(5)
+        self.err_smoother = Filter(0.95, 0.05)
 
         #Offsets
-        self.linear_velocity_offset = 0.05
+        self.linear_velocity_offset = 0.01
         # self.linear_velocity_offset = 0.01
 
         
@@ -237,12 +242,14 @@ class mymobibot_follower():
         error = self.wall_min_dist_find - min (self.sonar_F.range, self.sonar_FR.range, self.sonar_FL.range)
         self.velocity.linear.x = self.linear_velocity_offset - self.linear_control(error, time)
         if error >= - self.find_wall_error_thres:
+            self.prev_state = 0
             self.state = 1
             print("Found wall, moving on to State 1")
     
     
     def adjust(self,time):
-        error = self.turn_distance_thres - self.sonar_F.range
+        smooth_sonar = self.err_smoother(self.sonar_F.range, "front")
+        error = self.turn_distance_thres - smooth_sonar
         self.velocity.linear.x = self.linear_velocity_offset
         self.velocity.angular.z = self.turn_control(error,time)
 
@@ -251,25 +258,24 @@ class mymobibot_follower():
             if corners == 4:
                 self.state = 3
                 print("Adjusted, moving on to State 3")
-            else:
-                self.state = 2
-                print("Adjusted, moving on to State 2")
             self.state = 2
             print("Adjusted, moving on to State 2")
 
 
     def wall_follow(self,time):
-        linear_error = self.wall_min - self.sonar_F.range
-        d, theta = calc_distance_orientation(self.sonar_R.range, self.sonar_FR.range)
+        smooth_F = self.err_smoother(self.sonar_F.range, "front")
+        smooth_R = self.err_smoother(self.sonar_R.range, "right")
+        smooth_FR = self.err_smoother(self.sonar_FR.range, "front_right")
+        linear_error = self.wall_min - smooth_F
+        d, theta = calc_distance_orientation(smooth_R, smooth_FR)
         angular_error = theta - (self.correction * (d-self.wall_min))
-        angular_error = self.err_smoother(angular_error)
-
+        print("d", d, "err", angular_error)
         self.velocity.linear.x = - self.linear_control(linear_error, time) + self.linear_velocity_offset
         self.velocity.angular.z = self.angular_control(angular_error, time)
 
-        L.publish([('log_err_ang', angular_error), ('log_error', d - self.wall_min), ('log_theta', theta), ('log_mu', d), ('log_state2_time', time)])
+        # L.publish([('log_err_ang', angular_error), ('log_error', d - self.wall_min), ('log_theta', theta), ('log_mu', d), ('log_state2_time', time)])
 
-        if linear_error > self.linear_err_thres:
+        if linear_error >= -self.linear_err_thres:
         
             # Update states for countering corners #
             self.prev_state = 2
@@ -334,7 +340,6 @@ class mymobibot_follower():
         corners = 0
         
         while not rospy.is_shutdown():
-
             # Define time #
             rostime_now = rospy.get_rostime()
             time_now = rostime_now.to_nsec()
@@ -347,7 +352,6 @@ class mymobibot_follower():
                 # if state change from 2->1 then a corner is detected #
                 if self.prev_state == 2:
                     corners+=1
-                    self.prev_state = 0
                    # print(f'Corner: {corners}')
                 self.adjust(time_now)
 
@@ -359,6 +363,11 @@ class mymobibot_follower():
 
             elif self.state == 4:
                 self.turn_back(time_now)
+
+            elif self.state == -1:
+                self.velocity.linear.x = 0
+                self.velocity.angular.z = 0
+                print('State -1, supposed to stop')
 
             else:
                 self.back(time_now)
