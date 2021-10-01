@@ -1,7 +1,7 @@
 # robo-mobile
 
-## Execution!! 
-
+## Execution
+```
 1st Terminal:
   roslaunch read_sonars read_sonars.launch
  
@@ -10,4 +10,4 @@
  
 3rd Terminal:
   roslaunch robo2_mobile robo2_mobile.launch
-  
+  ```
