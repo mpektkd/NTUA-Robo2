@@ -1,6 +1,7 @@
 # robo-mobile
 
 Execution!! 
+
 1st Terminal:
   roslaunch read_sonars read_sonars.launch
  
