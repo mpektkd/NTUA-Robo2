@@ -4,7 +4,7 @@
  
  A project for a differential-drive mobile robot, using ROS. 
  
- The robot has 2 back wheels and 1 fron castor wheel. Also, it is equiped with 5 sonars and 1 IMU 9-dof, measuring linear acceleration for each axis and rotation angle.
+ The robot has 2 back wheels and 1 fronτ castor wheel. Also, it is equiped with 5 sonars and 1 IMU 9-dof, measuring linear acceleration for each axis and rotation angle.
  
  ## Wall Follow
  
